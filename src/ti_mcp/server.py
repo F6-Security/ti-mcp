@@ -175,7 +175,10 @@ async def get_collection(state: AppState, args: GetCollectionArguments, notes: l
     }
     result_id = args.result_id or None
     if args.scroll:
-        return await scroll_collection(state, collection, params, result_id, bool(args.restart), notes)
+        result = await scroll_collection(
+            state, collection, params, result_id, bool(args.restart), notes
+        )
+        return omit_list_fields(collection, result, notes)
     if result_id is not None or args.restart:
         raise ValueError(
             "result_id and restart apply to scroll=true only; the default mode pages with offset"
@@ -194,6 +197,39 @@ async def get_collection(state: AppState, args: GetCollectionArguments, notes: l
                 "collection: offset paging may not work here. Call again with "
                 "scroll=true to iterate with resultId."
             )
+    return omit_list_fields(collection, result, notes)
+
+
+def omit_list_fields(collection: str, result: Any, notes: list[str]) -> Any:
+    """Drop the fields the catalogue marks as too heavy for a list page, and say so.
+
+    A threat-actor card's history (its change log) is 80-85 % of the record, up to
+    hundreds of KB: a model handed a page of them loses the cards it was after.
+    Only ti_get_collection pages go through here; ti_get_item, ti_get_updates and
+    ti_request return records whole. A page without those fields comes back as is.
+    """
+    meta = COLLECTIONS.get(collection)
+    if meta is None or not meta.omit_in_lists or not isinstance(result, dict):
+        return result
+    items = result.get("items")
+    if not isinstance(items, list):
+        return result
+    dropped = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        for field in meta.omit_in_lists:
+            if field in item:
+                value = item.pop(field)
+                dropped += len(json.dumps(value, ensure_ascii=False).encode())
+    if dropped:
+        fields = ", ".join(meta.omit_in_lists)
+        notes.append(
+            f"Left out {fields} of every record ({-(-dropped // 1024)} KB on this page): the "
+            "record's change log, which dwarfs the rest of it. ti_get_item with collection "
+            f"{collection} and the record id returns the full record, {fields} included — "
+            "expect it to be large."
+        )
     return result
 
 
@@ -294,7 +330,10 @@ async def get_updates(state: AppState, args: GetUpdatesArguments, notes: list[st
     "collections hold the indicator and how many records each has (apiPath, label, "
     "link, count). Start here when you have an indicator but not a collection, then "
     "pull the detail with ti_get_collection using the same query. Accepts free text "
-    "(\"8.8.8.8\") or attribute:value (\"email:example@gmail.com\").",
+    "(\"8.8.8.8\") or attribute:value (\"email:example@gmail.com\"). An entry with error was "
+    "NOT searched (the collection failed or is not granted), which is not the same as no "
+    "match. If this tool itself fails, search the likely collections one by one with "
+    "ti_get_collection instead.",
 )
 async def global_search(state: AppState, args: GlobalSearchArguments, notes: list[str]) -> Any:
     return await state.client.get("search", {"q": args.query}, throttle_key="search")
@@ -478,10 +517,26 @@ def build_server(settings: Settings) -> Server[AppState]:
     return Server(
         "ti-mcp",
         version=__version__,
+        instructions=INSTRUCTIONS,
         lifespan=lifespan,
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,
     )
+
+
+INSTRUCTIONS = (
+    "Tools for the F6 Threat Intelligence API. Start with ti_list_collections to confirm access "
+    "and see what this account may read, and ti_describe_collections to pick a collection and "
+    "its searchable fields. ti_global_search finds which collections mention an indicator; "
+    "ti_get_collection reads and searches one collection; ti_get_updates follows a collection by "
+    "seqUpdate; ti_get_item fetches one record whole. Every answer starts with Note: lines when "
+    "the server did something on your behalf or the collection has search rules — read them. "
+    "Threat actors: apt/threat_actor and hi/threat_actor hold one card per group, the reports "
+    "about them are in apt/threat and hi/threat (search those by the group's name and aliases "
+    "as free text); look in both before saying a group is unknown. A tool error is not an empty "
+    "result: a collection that answered 4xx or 5xx was not searched — say so instead of "
+    "reporting that nothing was found."
+)
 
 
 async def main(settings: Settings) -> None:

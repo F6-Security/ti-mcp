@@ -34,7 +34,8 @@ class Collection:
     admiralty: str | None
     # 1..10, or a range as text where it depends on the source.
     severity: int | str | None
-    # Response attributes, which are also the attributes usable as q=<field>:<value>.
+    # Response attributes. Top-level scalar ones usually work as q=<field>:<value>
+    # too, but not everywhere: the threat collections' notes say what they accept.
     fields: tuple[str, ...]
     # A *_group collection: events of one entity merged into one record.
     group: bool = False
@@ -46,12 +47,31 @@ class Collection:
     has_files: bool = False
     # What a caller should know that the fields above do not say.
     note: str | None = None
+    # Fields ti_get_collection leaves out of every record of a page because they
+    # dwarf the rest of it; ti_get_item, ti_get_updates and ti_request keep them.
+    omit_in_lists: tuple[str, ...] = ()
+
+# Search rules of the threat collections, checked against the API. They ride
+# along as the note of every answer, so the model has them when it searches.
+ACTOR_SEARCH_NOTE = (
+    "q: name:<exact name>, aliases:<exact alias> (an abbreviation the user gives is usually an "
+    "alias, not the name), country:<code>, or free text, which also matches aliases, malware and "
+    "sectors. Targets, tools and the report list sit under stat (stat.malware, stat.sectors, "
+    "stat.reports); search them as free text — stat.*:value is rejected."
+)
+REPORT_SEARCH_NOTE = (
+    "q is free text: a word or a quoted phrase, several terms joined with AND / OR — terms "
+    "without an operator are searched as one phrase. To find a group's reports search its name "
+    "and aliases as free text: GOFFEE OR Rezet. field:value (name:, aliases:, threatActor.name:, "
+    "sectors:, …) is rejected with 400 invalid search field; the only exceptions are id:<id> and "
+    "domain:<domain>."
+)
 
 # One entry per collection. limit comes from the "Лимит записей" table in
 # General Info (feeds absent from it fall back to the documented default of
 # 100); ttl/admiralty/severity/availability/fields come from Collections Info.
-# fields are the response attributes, which double as the searchable attributes
-# for q=<field>:<value>.
+# fields are the response attributes; see Collection.fields for which of them
+# work in q=<field>:<value>.
 COLLECTIONS: dict[str, Collection] = {
     # --- Категория Утечки -------------------------------------------------
     "compromised/account_group": Collection(
@@ -252,6 +272,12 @@ COLLECTIONS: dict[str, Collection] = {
     "apt/threat_actor": Collection(
         category="threats", label="Угрозы :: Атакующие (APT)", limit=100,
         availability="common+individual", ttl_days=365, admiralty=None, severity=9,
+        note=(
+            "Group cards of nation-state actors, one record per group; the reports about them "
+            "are in apt/threat. Cybercriminals and hacktivists are in hi/threat_actor — search "
+            "both when unsure. " + ACTOR_SEARCH_NOTE
+        ),
+        omit_in_lists=("history",),
         fields=("addedToThreatLandscapeFor", "aliases", "author", "country", "createdAt",
                 "deleted", "description", "displayOptions", "files", "goals", "hasIocs",
                 "history", "id", "isAPT", "isPublished", "labels", "langs", "name",
@@ -262,6 +288,12 @@ COLLECTIONS: dict[str, Collection] = {
     "hi/threat_actor": Collection(
         category="threats", label="Угрозы :: Атакующие (HI)", limit=100,
         availability="common+individual", ttl_days=365, admiralty=None, severity=9,
+        note=(
+            "Group cards of cybercriminals and hacktivists, one record per group; the reports "
+            "about them are in hi/threat. Nation-state actors are in apt/threat_actor — search "
+            "both when unsure. " + ACTOR_SEARCH_NOTE
+        ),
+        omit_in_lists=("history",),
         fields=("addedToThreatLandscapeFor", "aliases", "author", "country", "createdAt",
                 "deleted", "description", "displayOptions", "files", "goals", "hasIocs",
                 "history", "id", "isAPT", "isPublished", "labels", "langs", "name",
@@ -276,6 +308,10 @@ COLLECTIONS: dict[str, Collection] = {
         category="threats", label="Угрозы :: Последние угрозы (APT)", limit=10,
         availability="common+individual", ttl_days=90, admiralty="varies", severity=9,
         hunting_rules=True, has_files=True,
+        note=(
+            "Reports on nation-state activity; threatActor names the group. Cybercriminal and "
+            "hacktivist reports are in hi/threat. " + REPORT_SEARCH_NOTE
+        ),
         fields=("author", "createdAt", "cveList", "dateFirstSeen", "dateLastSeen",
                 "datePublished", "displayOptions", "evaluation", "files", "hasIocs", "id",
                 "indicatorRelationships", "indicators", "isPublished", "langs", "malwareList",
@@ -287,6 +323,10 @@ COLLECTIONS: dict[str, Collection] = {
         category="threats", label="Угрозы :: Последние угрозы (HI)", limit=10,
         availability="common+individual", ttl_days=90, admiralty="varies", severity=9,
         hunting_rules=True, has_files=True,
+        note=(
+            "Reports on cybercriminal and hacktivist activity; threatActor names the group. "
+            "Nation-state reports are in apt/threat. " + REPORT_SEARCH_NOTE
+        ),
         fields=("author", "createdAt", "cveList", "dateFirstSeen", "dateLastSeen",
                 "datePublished", "displayOptions", "evaluation", "expertise", "files",
                 "forumsAccounts", "hasIocs", "history", "id",
@@ -447,6 +487,8 @@ def describe(collection: str, *, include_fields: bool) -> dict[str, Any]:
         described["deprecated_in_favour_of"] = DEPRECATED[collection]
     if meta and meta.note:
         described["note"] = meta.note
+    if meta and meta.omit_in_lists:
+        described["omitted_in_lists"] = list(meta.omit_in_lists)
     if include_fields:
         described["fields"] = list(meta.fields) if meta else []
     return described

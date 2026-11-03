@@ -135,7 +135,7 @@ class TestStdioHandshake(unittest.TestCase):
         # below for good; the watchdog turns that into a failed assertion.
         watchdog = threading.Timer(30, proc.kill)
         watchdog.start()
-        tools = None
+        tools = instructions = None
         try:
             for request in self.REQUESTS:
                 proc.stdin.write(json.dumps(request) + "\n")
@@ -144,6 +144,8 @@ class TestStdioHandshake(unittest.TestCase):
             # exit on EOF before it has answered.
             for line in proc.stdout:
                 message = json.loads(line)
+                if message.get("id") == 1:
+                    instructions = message["result"].get("instructions")
                 if message.get("id") == 2:
                     tools = [tool["name"] for tool in message["result"]["tools"]]
                     break
@@ -154,6 +156,7 @@ class TestStdioHandshake(unittest.TestCase):
             proc.wait(timeout=10)
             proc.stdout.close()
         self.assertEqual(tools, EXPECTED_TOOLS)
+        self.assertEqual(instructions, server.INSTRUCTIONS)
 
 
 if __name__ == "__main__":

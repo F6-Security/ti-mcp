@@ -174,8 +174,15 @@ it; `ti_describe_collections` gives the fields and caps of the one you need;
 
 `query` is free text over every attribute (`"8.8.8.8"`) or `attribute:value`
 (`"domain:example.com"`). The attributes are the collection's response fields,
-listed by `ti_describe_collections`. `date_from`/`date_to` take `YYYY-MM-DD` or
-`YYYY-MM-DDTHH:MM:SSZ`.
+listed by `ti_describe_collections`, but not every collection accepts them: threat
+reports (`apt/threat`, `hi/threat`) are searched as free text only, apart from `id:`
+and `domain:`. Several words without an operator are searched as one phrase — join
+them with `AND`/`OR`. Each answer carries the collection's search rules as a note.
+`date_from`/`date_to` take `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`.
+
+Threat actor cards (`apt/threat_actor`, `hi/threat_actor`) come from
+`ti_get_collection` without `history`, the change log that makes up most of a
+card; `ti_get_item` returns the full record.
 
 `ti_get_collection` pages with `offset` in steps of `limit` up to `count`. To
 export a large set or walk a whole collection pass `scroll=true`: the server

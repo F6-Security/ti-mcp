@@ -46,14 +46,19 @@ class FeedThrottle:
             self._last_start[key] = loop.time()
 
 
+# Closes the hints of the statuses where the request never got a real answer,
+# so that the model does not report "nothing found".
+NOT_SEARCHED = " — nothing was searched, so report this collection as unchecked, not as empty"
+
 # Messages merge the troubleshooting section of General Info with pyf6's
 # STATUS_CODE_MSGS, so a failing call says what to fix instead of echoing a code.
 STATUS_HINTS: dict[int, str] = {
     400: (
-        "bad request — a searchable tag this collection does not have (the body names the "
-        "field), offset + limit beyond the 10000 window (use scroll=true for deeper reads), or "
-        "an expired resultId (kept ~150 s after its last use; the body is then empty — call "
-        "again without result_id)"
+        "bad request — a field:value search this collection does not support (the body says "
+        "\"invalid search field\" or names the field: repeat the value as free text without the "
+        "field: prefix), offset + limit beyond the 10000 window (use scroll=true for deeper "
+        "reads), or an expired resultId (kept ~150 s after its last use; the body is then empty "
+        "— call again without result_id)"
     ),
     401: (
         "TI_LOGIN/TI_API_KEY missing or wrong — the key is created in Личный кабинет → "
@@ -72,8 +77,11 @@ STATUS_HINTS: dict[int, str] = {
         "(Common API call without resultId) is allowed once per 60 s; continue with the resultId "
         "you already have, or wait Retry-After"
     ),
-    500: "server-side error on the TI side, retry in a few minutes",
-    504: "lower the limit parameter so the server has less to process",
+    500: "server-side error on the TI side, retry in a few minutes" + NOT_SEARCHED,
+    502: "the collection's backend on the TI side is unavailable, retry in a few minutes" + NOT_SEARCHED,
+    503: "the TI API is temporarily unavailable, retry in a few minutes" + NOT_SEARCHED,
+    504: "the server did not answer in time — lower the limit parameter so it has less to process"
+    + NOT_SEARCHED,
 }
 
 class APIError(RuntimeError):

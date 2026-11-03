@@ -85,9 +85,13 @@ COLLECTION_DESCRIPTION = (
     "may actually read, ti_describe_collections what each one contains."
 )
 QUERY_DESCRIPTION = (
-    "Optional q filter. Free text matches any attribute (\"8.8.8.8\"); \"attribute:value\" "
-    "narrows it (\"domain:example.com\", \"email:a@b.com\"). Valid attributes are the "
-    "collection's response fields — see ti_describe_collections."
+    "Optional q filter. Free text matches any attribute (\"8.8.8.8\", \"GOFFEE\") and is the "
+    "safe default. Several terms without an operator are searched as one phrase: join them with "
+    "AND / OR or quote a phrase: \"Cobalt Strike\". \"attribute:value\" matches one top-level "
+    "field exactly (\"domain:example.com\", \"name:GOFFEE\"), but only where the collection "
+    "supports that field: apt/threat and hi/threat accept nothing but id: and domain:. A 400 "
+    "\"invalid search field\" means exactly that — repeat the value as free text. The "
+    "collection's note (in every answer and in ti_describe_collections) says how to search it."
 )
 HUNTING_DESCRIPTION = (
     "0 or 1. Applies this account's hunting rules so only matching data comes back. "

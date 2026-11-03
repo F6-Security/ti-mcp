@@ -174,8 +174,15 @@ ti_get_updates          collection="malware/cnc" seq_update=16394859
 
 Фильтр `query` — свободный текст по всем атрибутам (`"8.8.8.8"`) или
 `атрибут:значение` (`"domain:example.com"`). Атрибуты — поля ответа коллекции,
-их показывает `ti_describe_collections`. Даты `date_from`/`date_to` — `YYYY-MM-DD`
-или `YYYY-MM-DDTHH:MM:SSZ`.
+их показывает `ti_describe_collections`, но работают они не везде: отчёты об
+угрозах (`apt/threat`, `hi/threat`) ищутся только свободным текстом, кроме `id:`
+и `domain:`. Несколько слов без оператора ищутся как одна фраза — соединяйте их
+`AND`/`OR`. Правила поиска коллекции приходят заметкой в каждом ответе. Даты
+`date_from`/`date_to` — `YYYY-MM-DD` или `YYYY-MM-DDTHH:MM:SSZ`.
+
+Карточки группировок (`apt/threat_actor`, `hi/threat_actor`) приходят из
+`ti_get_collection` без `history` — журнала изменений, который занимает большую
+часть карточки; полную запись отдаёт `ti_get_item`.
 
 Страницы `ti_get_collection` листаются параметром `offset` с шагом `limit` до
 `count`. Для выгрузки большого набора или полного обхода коллекции передайте
