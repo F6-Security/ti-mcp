@@ -1,0 +1,14 @@
+venv/
+.venv/
+/dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.env
+opencode.json
+.DS_Store
+
+# Local working notes, never committed.
+ai_docs/
+mcp_review.md

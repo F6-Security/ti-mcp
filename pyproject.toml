@@ -1,0 +1,69 @@
+[build-system]
+# 1.27 is the first release that understands PEP 639 license metadata.
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ti-mcp"
+dynamic = ["version"]
+description = "MCP server for the F6 Threat Intelligence API"
+readme = "README.md"
+authors = [{ name = "Future Joint-Stock Company", email = "ti@f6.ru" }]
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["mcp", "model-context-protocol", "threat-intelligence", "security"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+dependencies = [
+    "mcp==2.3.0",
+    # imported directly by server.py, so it is declared rather than left implicit.
+    # Deliberately unpinned: mcp pins it to an exact version of its own, and a
+    # second exact pin here makes the two impossible to update independently.
+    "mcp-types",
+    "httpx==0.28.1",
+    # The tool argument models. A floor, not a pin, for the same reason as
+    # mcp-types: mcp sets its own range, and the lock file pins the version.
+    "pydantic>=2.12",
+]
+
+[project.scripts]
+ti-mcp = "ti_mcp.server:cli"
+
+[project.urls]
+Homepage = "https://github.com/F6-Security/ti-mcp"
+Issues = "https://github.com/F6-Security/ti-mcp/issues"
+
+[dependency-groups]
+dev = ["ruff==0.16.6"]
+
+[tool.hatch.version]
+path = "src/ti_mcp/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ti_mcp"]
+
+[tool.hatch.build.targets.sdist]
+# README artwork is referenced by absolute URL, so it has no business riding
+# along into every install; neither do internal/ and the GitLab CI config.
+exclude = ["docs", "internal", ".gitlab-ci.yml"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "S"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106"]  # test fixtures carry obvious fake credentials
