@@ -79,6 +79,37 @@ claude mcp add ti \
   -- uvx ti-mcp
 ```
 
+Для OpenCode — ключ `mcp` в `~/.config/opencode/opencode.json` (все проекты)
+или в `opencode.json` в корне проекта:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "ti": {
+      "type": "local",
+      "command": ["uvx", "ti-mcp"],
+      "enabled": true,
+      "timeout": 660000,
+      "environment": {
+        "TI_LOGIN": "user@example.com",
+        "TI_API_KEY": "{file:~/.config/ti-mcp/key}"
+      }
+    }
+  }
+}
+```
+
+В отличие от конфигов выше, `command` — массив вместе с аргументами, переменные —
+в `environment`, а `"type": "local"` обязателен. Ключ можно не держать в конфиге:
+OpenCode подставляет содержимое файла (`{file:…}`) или переменную окружения
+(`{env:TI_API_KEY}`). `timeout` — в миллисекундах, по умолчанию 30 с на запрос, а
+один вызов тула может длиться дольше: на 429 и 5xx сервер повторяет запрос до
+`TI_RETRIES` раз (по умолчанию 3), каждая попытка ждёт портал до `TI_TIMEOUT`
+(120 с), а между попытками выдерживается пауза `Retry-After`. 660 с покрывают
+четыре попытки и паузы по минуте; если меняете `TI_TIMEOUT` или `TI_RETRIES`,
+пересчитайте. Проверить подключение — `opencode mcp list`.
+
 Вместо `uvx` можно использовать `pip install ti-mcp` и команду `ti-mcp`, либо
 контейнер — `docker run -i --rm -e TI_LOGIN -e TI_API_KEY ghcr.io/f6-security/ti-mcp`
 (образ собран под `linux/amd64` и `linux/arm64`).
@@ -104,7 +135,8 @@ claude mcp add ti \
   -- /path/to/ti-mcp/venv/bin/ti-mcp
 ```
 
-В JSON-конфиге — `"command": "/path/to/ti-mcp/venv/bin/ti-mcp"` без `args`.
+В JSON-конфиге — `"command": "/path/to/ti-mcp/venv/bin/ti-mcp"` без `args`, в
+OpenCode — `"command": ["/path/to/ti-mcp/venv/bin/ti-mcp"]`.
 Пакет установлен в editable-режиме, поэтому правки кода подхватываются при
 следующем запуске сервера. Для тестового стенда задайте его адрес в `TI_BASE_URL`.
 
